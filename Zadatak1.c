@@ -1,81 +1,211 @@
+﻿/*1. Napisati program koji prvo pročita koliko redaka ima datoteka, tj. koliko ima studenata zapisanih u datoteci. Nakon toga 
+potrebno je dinamički alocirati prostor za niz struktura studenata (ime, prezime, bodovi) i učitati iz datoteke sve zapise. Na ekran 
+ispisati ime, prezime, apsolutni i relativni broj bodova. Napomena: Svaki redak datoteke sadrži ime i prezime studenta, te broj 
+bodova na kolokviju. relatvan_br_bodova = br_bodova/max_br_bodova*100*/
 
-#include <stdio.h>
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
-#define MAX_BODOVA 30
+//defininig constant values
+#define MAX_BUFFER_SIZE (1024)
+#define MAX_FILE_NAME (128)
+#define MAX_NAME_SIZE (128)
+#define MAX_LINE (128)
+#define FILE_OPENING_ERROR (-1)
+#define GET_INFO_SUCCESS (0)
+#define MAX_NUM_POINTS (60)
+#define SUCCESS (0)
+#define MEMORY_ALLOC_FAIL (-1)
 
-typedef struct {
-    char ime[50];
-    char prezime[50];
-    int br_bodova;
-} Student;
 
-int main(void) {
-    FILE *dat;
-    Student *studenti;
-    int n = 0;
-    int i;
+struct _Student;
+//structure Student of type struct _Student
+typedef struct _Student
+{
+    char name[MAX_NAME_SIZE];
+    char surname[MAX_NAME_SIZE];
+    int points;
 
-    /* Otvaranje datoteke */
-    dat = fopen("studenti.txt", "r");
+}Student;
 
-    if (dat == NULL) {
-        printf("Greska pri otvaranju datoteke!\n");
-        return 1;
-    }
 
-    /* Brojanje redaka u datoteci */
-    char redak[200];
+//funtion definitions
+int countStudentsFromFile(char*);
+int getStudentInfo(char*, int, Student*);
+void printStudentInfo(int, Student*);
 
-    while (fgets(redak, sizeof(redak), dat) != NULL) {
-        n++;
-    }
+//main
+int main(void)
+{
+    //variables for get_student_info
+    Student* studenti = NULL;
+    int i = 0;
+    int show = -1;
 
-    /* Vracanje na pocetak datoteke */
-    rewind(dat);
+    //variables for countStudent
+    char fileName[MAX_FILE_NAME] = { 0 };
+    int numOfStudents = 0;
 
-    /* Dinamicka alokacija memorije */
-    studenti = malloc(n * sizeof(Student));
+    //ask user for file name
+    printf("Insert filename > ");
+    scanf(" %s", fileName);
 
-    if (studenti == NULL && n > 0) {
-        printf("Greska pri alokaciji memorije!\n");
-        fclose(dat);
-        return 1;
-    }
+    //get value from function thats reading the file
+    numOfStudents = countStudentsFromFile(fileName);
 
-    /* Ucitavanje podataka o studentima */
-    for (i = 0; i < n; i++) {
-        if (fscanf(dat, "%49s %49s %d",
-                   studenti[i].ime,
-                   studenti[i].prezime,
-                   &studenti[i].br_bodova) != 3) {
-            printf("Greska pri citanju podataka!\n");
-            free(studenti);
-            fclose(dat);
-            return 1;
+    //check if number of students read from file is more then zero
+    //and only then proceed with mem alloc
+    if (numOfStudents > 0)
+    {
+        studenti = (Student*)calloc(numOfStudents, sizeof(Student));
+        //dynamically allocate memory based on result and check it
+        if (studenti == NULL)
+        {
+            printf("Failed while allocating the memory, exiting the program...\n");
+            return MEMORY_ALLOC_FAIL;
         }
     }
 
-    fclose(dat);
-
-    /* Ispis rezultata */
-    printf("%-15s %-15s %-15s %-20s\n",
-           "Ime", "Prezime", "Broj bodova",
-           "Relativni bodovi (%)");
-
-    for (i = 0; i < n; i++) {
-        double relativni_bodovi =
-            (double)studenti[i].br_bodova / MAX_BODOVA * 100;
-
-        printf("%-15s %-15s %-15d %-20.2f\n",
-               studenti[i].ime,
-               studenti[i].prezime,
-               studenti[i].br_bodova,
-               relativni_bodovi);
+    //printing num of students on screen
+    if (numOfStudents >= 0)
+    {
+        printf("Broj studenata u datoteci '%s' je %d\n", fileName, numOfStudents);
+        //get info from file and store it in the structure
+        show = getStudentInfo(fileName, numOfStudents, studenti);
     }
 
-    /* Oslobadanje dinamicki alocirane memorije */
+    //calling the printStudentInfo function if there was no error while getting the student data
+    if (show == 0)
+    {
+        printStudentInfo(numOfStudents, studenti);
+    }
+    else
+    {
+        printf("Error when getting student info from the file!\n");
+    }
+
+    //free memory allocated
     free(studenti);
 
-    return 0;
+    return SUCCESS;
+}
+
+
+//function that opens the textfile and reads all student info from it,
+//stores it in a structure and closes the file
+int getStudentInfo(char* fileName, int numOfStudents, Student* studenti)
+{
+    int i = 0;
+    int count = 0;
+    char buffer[MAX_LINE] = { 0 };
+
+    //opening the text file and setting it to a variable
+    FILE* fp = NULL;
+    fp = fopen(fileName, "r");
+
+
+    //check if file has opened successfully (if not return error)
+    if (fp == NULL)
+    {
+        printf("The file '%s' didn't open!\r\n", fileName);
+        return FILE_OPENING_ERROR;
+    }
+
+    //looping through a known number of students
+    for (i = 0; i < numOfStudents; i++)
+    {
+        char nameInp[MAX_NAME_SIZE] = "";
+        char surnameInp[MAX_NAME_SIZE] = "";
+        int pointsInp = 0;
+
+        //skipping rows which are blank and don't contain student info
+        while (1)
+        {
+            fgets(buffer, MAX_BUFFER_SIZE, fp);
+
+            if (strcmp("\n", buffer) != 0)
+            {
+                break;
+            }
+        }
+
+        //copying data from the buffer to the variables 
+        sscanf(buffer, "%s %s %d", nameInp, surnameInp, &pointsInp);
+
+
+        Student* currentStudent = studenti + i;
+
+        //copying data from variables to the structure via pointer
+        strcpy(currentStudent->name, nameInp);
+        strcpy(currentStudent->surname, surnameInp);
+        currentStudent->points = pointsInp;
+
+    }
+
+    //closing the text file
+    fclose(fp);
+
+    return GET_INFO_SUCCESS;
+}
+
+
+//function that takes in num of students and structure pointer
+//it prints all student info on screen
+void printStudentInfo(int numOfStudents, Student* studenti)
+{
+    int i = 0;
+    float rel_points = 0.0;
+    printf("\nPrinting student info:\n");
+
+    //looping through the known number of students and printing their info
+    for (i = 0; i < numOfStudents; i++)
+    {
+        Student stud = *(studenti + i);
+        //calculating their relative score
+        rel_points = (((float)stud.points / MAX_NUM_POINTS) * 100);
+
+        //printing everything on the screen
+        printf("Student %s %s ima %d apsolutnih odnosno %.2f%% bodova!\n", stud.name, stud.surname, stud.points, rel_points);
+    }
+
+}
+
+
+//function that opens the textfile reads how many students there are
+//then it returns the value that it got
+int countStudentsFromFile(char* fileName)
+{
+    //opening the text file and setting it to a variable
+    FILE* fp = NULL;
+    fp = fopen(fileName, "r");
+
+    int count = 0;
+    char buffer[MAX_LINE] = { 0 };
+
+
+    //checking if the file opened correctly, if not returning error
+    if (fp == NULL)
+    {
+        printf("The file %s didn't open!\r\n", fileName);
+        return FILE_OPENING_ERROR;
+    }
+
+    //going through the file and counting the number of students
+    while (!feof(fp))
+    {
+        fgets(buffer, MAX_BUFFER_SIZE, fp);
+
+        if (strcmp("\n", buffer) != 0)
+        {
+            count++;
+        }
+    }
+
+    //closing the text file
+    fclose(fp);
+
+    //returning the number of students in the file
+    return count;
 }
